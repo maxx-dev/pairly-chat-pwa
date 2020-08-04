@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+<input type="submit" id="MyButton">
+<script>
+    async function webauthnCheck() {
+        if (await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()) {
+            document.getElementById('MyButton').onclick = async function(event){
+                event.preventDefault();
+                const options = {
+                    publicKey: {
+                        rp: {
+                            name: 'mydomain.tld'
+                        },
+                        user: {
+                            id: Uint8Array.from("XXXXXX", c => c.charCodeAt(0)),
+                            name: 'test',
+                            displayName: 'Test User'
+                        },
+                        challenge: Uint8Array.from('XXXXXX', c => c.charCodeAt(0)),
+                        pubKeyCredParams: [
+                            {
+                                type: 'public-key',
+                                alg: -7
+                            }
+                        ],
+                        timeout: 15000
+                    }
+                }
+                console.log(options);
+                navigator.credentials.create(options).then(function (publicKeyCredential) {
+                    console.log(publicKeyCredential);
+                })
+            }
+        }
+    }
+    webauthnCheck();
+</script>
+</body>
+</html>
