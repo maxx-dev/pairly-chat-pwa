@@ -1,31 +1,28 @@
 import React, { Component } from 'react';
 import './style/App.scss';
 //import ChatContainer from './components/ChatContainer'; // now loaded async
-import FetchManager from './libs/FetchManager'
 import Login from './components/Login'
 import PermissionManager from './PermissionManager.js'
 import CacheManager from './CacheManager.js'
 import Helper from './Helper.js'
 import { connect } from "react-redux";
-import { changeToast, changeView, changeUser, changeConnection } from "./actions/index";
-//import Toast from "./components/Toast";
+import { changeToast, changeView, changeUser, changeModal, changeConnection } from "./actions/index";
 import Spinner from "./components/Spinner";
+import Progress from "./components/Progress";
 import MsgBuilder from "./libs/MsgBuilder";
-import Popup from "./components/Popup";
-import SVGIcons from "./SVGIcons";
+import Toast from "./components/Toast";
+import Modal from "./components/modals/Modal";
 
 class App extends Component {
   constructor(){
     super()
     let userNameFromUrl = new URLSearchParams(window.location.search).get('username') || '';
-    window.app = {
-      msgBuilder: new MsgBuilder(),
-      fetchManager:new FetchManager(),
-      permissionManager: new PermissionManager(),
-      cacheManager: new CacheManager()
-    };
+    window.VERSION_APP = process.env.VERSION;
+    window.app.msgBuilder = new MsgBuilder();
+    window.app.permissionManager = new PermissionManager();
+    window.app.cacheManager = new CacheManager();
     window.helper = new Helper();
-    this.trackVisibility();
+    window.helper.trackVisibility(this.onFocusChange.bind(this),this.onVisibilityChange.bind(this),this.onPageShow.bind(this));
     //console.log('userNameFromUrl',userNameFromUrl);
     this.state = {
       userNameSelection: userNameFromUrl,
@@ -37,6 +34,11 @@ class App extends Component {
       id:null
     };
 
+    if (localStorage.getItem('updateConfirmed'))
+    {
+       this.state.updateActive = true;
+    }
+
     this.ref = {
       chatContainer:React.createRef()
     };
@@ -46,17 +48,37 @@ class App extends Component {
     window.onReceivedPushMsg = this.onReceivedPushMsg.bind(this);
 
     this.loadChatContainer = this.loadChatContainer.bind(this);
-    window.app.fetchManager.get('api/auth',{data:{token:localStorage.getItem('token')}}).then( ([err,data]) => {
-      console.log('api/auth',data);
-      this.onAuth({err:data.err,user:data.user,appInfos:data.appInfos})
-    });
+    this.loadKPIDashboard = this.loadKPIDashboard.bind(this);
+    if (navigator.onLine)
+    {
+      window.app.fetchManager.get('api/auth',{data:{token:localStorage.getItem('token')}}).then( ([err,data]) =>
+      {
+        //console.log('api/auth',data);
+        if (data)
+        {
+          this.onAuth({err:data.err,user:data.user,appInfos:data.appInfos})
+        }
+      });
+    }
+
+    if (process.env.ENV !== 'PRODUCTION')
+    {
+       window.helper.updateManifest( (manifest) => {
+         let envShort = process.env.ENV.substr(0,1);
+         manifest.name = "Pairly PWA "+envShort;
+         manifest.short_name = "Pairly PWA "+envShort;
+         return manifest
+       }).then(() => { });
+    }
+    window.helper.preventPinchToZoom()
+    window.helper.preventDoubleTapToZoom()
   }
 
   componentDidMount()
   {
     window.app.cacheManager.init().then( () =>
     {
-      console.log('Cache Ready');
+      //console.log('Cache Ready',navigator.onLine);
       if (!navigator.onLine) this.onOffline();
       window.addEventListener('online',this.onConnectionStateChange.bind(this));
       window.addEventListener('offline',this.onConnectionStateChange.bind(this));
@@ -68,19 +90,34 @@ class App extends Component {
       });
 
     });
-    // TO-DO indexed DB not supported warning
+    window.addEventListener('RECEIVED_SERVICE_WORKER_VERSION',this.onReceivedServiceWorkerVersion.bind(this));
+    window.addEventListener('UPDATE_DONE',this.onUpdateDone.bind(this));
+    /*document.addEventListener('gesturestart', function (e) {
+      e.preventDefault();
+    }); // Prevent Body Bounce Scroll iOS 14 in standalone mode*/
 
-
-    /*window.app.fetchManager.get('api/chats/test',{data:{}}).then(([err,data]) =>
-    {
-      if (err) console.log(err);
-      console.log(data);
-    });*/
+    //this.props.changeModal({type:'UPDATE'})
   }
 
   loadChatContainer() {
-    //import("./components/Text").then(Text => this.setState({Text: Text.default}));
     import(/* webpackChunkName: "[ChatContainer]"*/ "./components/ChatContainer").then(AsyncChatContainer => this.setState({AsyncChatContainer: AsyncChatContainer.default}));
+  }
+
+  loadKPIDashboard() {
+    import(/* webpackChunkName: "[ChatContainer]"*/ "./components/KPIDashboard").then(AsyncKPIDashboard => this.setState({AsyncKPIDashboard: AsyncKPIDashboard.default}));
+  }
+
+  onReceivedServiceWorkerVersion ()
+  {
+    //console.log('RECEIVED_SERVICE_WORKER_VERSION',window.VERSION_SERVICE_WORKER);
+    this.checkForUpdate()
+  }
+
+  onUpdateDone ()
+  {
+    console.info('onUpdateDone');
+    this.setState({updateActive:false});
+    window.location.reload();
   }
 
   onMapsReady ()
@@ -97,12 +134,12 @@ class App extends Component {
     {
       if (cacheResAuth)
       {
-        console.log('ON OFFLINE!');
+        //console.log('ON OFFLINE!',cacheResAuth);
         this.onAuth({err:null,user:cacheResAuth.result.data[1],appInfos:cacheResAuth.result.data[2]})
       }
       else
       {
-        console.log('No Cache Entries for auth found')
+        console.log('No Cache Entries for auth found',err)
       }
     })
   }
@@ -152,15 +189,18 @@ class App extends Component {
 
   onAuth({err,user,appInfos})
   {
-    //window.app.cacheManager.set('auth',{data:user,route:'auth'}).then(function (){});
+    window.app.cacheManager.set('cache|auth',{data:[err,user,appInfos],route:'auth'}).then(function (){});
     window.app.cacheManager.set('cache|appInfos',{data:appInfos,route:'appInfos'}).then(function (){});
     console.log('auth',err,user,'appInfos',appInfos);
     if (appInfos)
     {
-      window.VERSION_APP = appInfos.version;
+      window.VERSION_APP_SERVER = appInfos.version;
+      window.VERSION_SW_SERVER = appInfos.swVersion;
+      this.onGetAppInfos(appInfos);
     }
     if (user)
     {
+      //console.log('Load Chat Container');
       this.loadChatContainer();
       if (user.darkModeActive && !document.documentElement.classList.contains('dark')) document.documentElement.classList.add('dark');
       if (user.reducedMotionActive && !document.documentElement.classList.contains('reducedMotion')) document.documentElement.classList.add('reducedMotion');
@@ -193,6 +233,10 @@ class App extends Component {
         return latestMsgCreatedAtB - latestMsgCreatedAtA; // DESC
     })
     }
+    else
+    {
+      console.log('No user');
+    }
     this.props.changeUser(user || null);
     this.setState({appReady:true},function ()
     {
@@ -200,37 +244,49 @@ class App extends Component {
     });
 
     let isMockup = false;
+    let isKPIDashboard = false;
+    let launchTime = 0;
     if ('URLSearchParams' in window)
     {
-      isMockup = new URLSearchParams(new URL(window.location.href).search).has('mockup');
+      let params = new URLSearchParams(document.location.search.substring(1));
+      isMockup = params.has('mockup');
+      isKPIDashboard = params.has('isKPIDashboard');
+      launchTime = params.has('launchTime');
+      if (launchTime)
+      {
+        window.app.launchTime = parseInt(params.get('launchTime'))
+      }
     }
     if (isMockup && !document.documentElement.classList.contains('mockup'))
     {
       document.documentElement.classList.add('mockup');
       window.app.isMockup = true
     }
+    if (localStorage.getItem('isBatteryTest'))
+    {
+      this.setBatteryTest(true);
+    }
+    if (isKPIDashboard)
+    {
+      this.loadKPIDashboard();
+      window.app.isKPIDashboard = true
+    }
+    window.app.setBatteryTest = this.setBatteryTest.bind(this);
   }
 
-  trackVisibility ()
+  setBatteryTest (state)
   {
-    //console.log('trackVisibility')
-    var hidden, visibilityChange;
-    if (typeof document.hidden !== "undefined") { // Opera 12.10 and Firefox 18 and later support
-      hidden = "hidden";
-      visibilityChange = "visibilitychange";
-    } else if (typeof document.msHidden !== "undefined") {
-      hidden = "msHidden";
-      visibilityChange = "msvisibilitychange";
-    } else if (typeof document.webkitHidden !== "undefined") {
-      hidden = "webkitHidden";
-      visibilityChange = "webkitvisibilitychange";
-    }
-    document.addEventListener(visibilityChange, this.onVisibilityChange.bind(this), false);
-    window.addEventListener('focus', this.onFocusChange.bind(this),true);
+    console.info('setBatteryTest',state);
+    //document.body.style.background = state ? 'red' : 'none';
+    this.props.changeToast(<Toast text={'Battery test '+(state ? 'enabled' : 'disabled')}></Toast>);
+    state ? localStorage.setItem('isBatteryTest','1') : localStorage.removeItem('isBatteryTest');
+    window.app.isBatteryTest = state
+
   }
 
   userStatusChanged (status,reason)
   {
+    console.info('userStatusChanged',status,'reason',reason)
     if (window.app.socketManager)
     {
       window.app.socketManager.emit("put:statusChanged", {
@@ -241,22 +297,38 @@ class App extends Component {
     }
   }
 
-  onFocusChange ()
+  onFocusChange () // Only works reliable on mobile ios (osx delivers weird results)
   {
-    //console.log('onFocusChange',document.hasFocus());
-    if (document.hasFocus()) window.dispatchEvent(new CustomEvent('WINDOW_FOCUS'));
+    console.info('onFocusChange',document.hasFocus());
+    if (document.hasFocus())
+    {
+      window.appMetrics['TTI'].setEnd(false,false, true);
+      this.userStatusChanged(true,'FOCUS')
+    }
+    else
+    {
+      this.userStatusChanged(false,'BLUR')
+    }
+    if (document.hasFocus()) window.dispatchEvent(new CustomEvent('WindowFocus'));
+  }
+
+  // is used when app launches fresh (if only backgrounded then onFocusChange will handle event
+  onPageShow ()
+  {
+    //window.appMetrics['TTI'].text = "PageShow";
+    //window.appMetrics['TTI'].setEnd(false,false, true);
   }
 
   onVisibilityChange ()
   {
-    //console.log('onVisibilityChange',document.hidden);
+    console.info('isDocumentHidden',document.hidden);
     if (document.hidden)
     {
-      this.userStatusChanged(false,'DOC_HIDDEN')
+      //this.userStatusChanged(false,'DOC_HIDDEN')
     }
     else
     {
-      this.userStatusChanged(true,'DOC_SHOWN');
+      //this.userStatusChanged(true,'DOC_SHOWN');
       window.dispatchEvent(new CustomEvent('DOC_SHOWN'));
     }
   }
@@ -280,13 +352,8 @@ class App extends Component {
   renderLoader () {
     //return <div><h2>Loading...</h2></div>
     return <div className="startupPage">
-
     <Spinner></Spinner>
-
-      <div className="progressContainer">
-        <progress dir="ltr" id="progressbar" value="0" max="4607208.75"></progress>
-      </div>
-
+    <Progress></Progress>
     </div>
   }
 
@@ -304,15 +371,85 @@ class App extends Component {
   renderApp()
   {
     let { user } = this.props;
-    let { AsyncChatContainer } = this.state;
+    let { AsyncChatContainer, AsyncKPIDashboard, updateActive } = this.state;
+    if (window.app.isKPIDashboard)
+    {
+      document.title = 'Pairly Chat KPIs';
+      return <AsyncKPIDashboard></AsyncKPIDashboard>
+    }
+    //console.log('updateConfirmed',localStorage.getItem('updateConfirmed'))
+    if (updateActive)
+    {
+      return <div className="updateActiveContainer">
+        <h1>Installing Update...</h1>
+      </div>
+    }
+
     let props = {
       ref:(el => this.ref.chatContainer = el),
       sharedFiles:this.state.sharedFiles,
       removeFilePreview:this.removeFilePreview.bind(this),
       sendQueuedMsgs:this.sendQueuedMsgs.bind(this),
+      onGetAppInfos:this.onGetAppInfos.bind(this),
       //wrappedComponentRef:(el => this.ref.chatContainer = el)
     };
-    return user && AsyncChatContainer ? <AsyncChatContainer {...props} /> : <Login onAuthSuccess={this.onAuthSuccess.bind(this)}></Login>
+    if (!AsyncChatContainer && !this.state.appReady)
+    {
+       return this.renderLoader()
+    }
+    return user ? <AsyncChatContainer {...props} /> : <Login onAuthSuccess={this.onAuthSuccess.bind(this)}></Login>
+  }
+
+  onGetAppInfos (appInfos)
+  {
+    console.info('onGetAppInfos',appInfos);
+    window.app.appInfos = appInfos;
+    this.checkForUpdate()
+  }
+
+
+  // Happens on Auth with socket and on received version from Service Worker, depending on what hapens last
+  checkForUpdate ()
+  {
+    let appInfos = window.app.appInfos;
+    //console.log('checkForUpdate', window.VERSION_SERVICE_WORKER,appInfos ? appInfos.swVersion : false);
+    if (appInfos && window.VERSION_SERVICE_WORKER && window.VERSION_SERVICE_WORKER !== appInfos.swVersion && !localStorage.getItem('updateConfirmed'))
+    {
+      console.info('Update available',window.VERSION_SERVICE_WORKER,'=>',appInfos.swVersion);
+      this.props.changeModal({type:'UPDATE'})
+    }
+  }
+
+  renderModal ()
+  {
+    //console.log('renderModal',this.props.modal);
+    if (this.props.modal.type === 'UPDATE')
+    {
+      let props = {
+        type:'CONFIRM',
+        header:'Update '+window.app.appInfos.swVersion+' available',
+        content:"A new update for Pairly Chat is available. Do you want to install this update. The installation will only take a few seconds.",
+        confirmAcceptTitle:'Install now',
+        confirmRejectTitle:'Later',
+        onAction:this.onModalAction.bind(this),
+        modalKey:'UPDATE_MODAL'
+      };
+      return <Modal {...props} className={[]}></Modal>
+    }
+  }
+
+  onModalAction (modal,action)
+  {
+    console.log('onModalAction',modal,'action',action)
+    if (modal.props.modalKey === 'UPDATE_MODAL')
+    {
+      if (action === 'ACCEPT')
+      {
+        localStorage.setItem('updateConfirmed',1);
+        window.location.reload()
+      }
+      this.props.changeModal(false);
+    }
   }
 
   render()
@@ -325,8 +462,12 @@ class App extends Component {
         <div className="toastContainer">
           {this.props.toast}
         </div>
+        {this.props.modal ? <div className="modalContainer">
+          {this.renderModal() }
+        </div> : false}
         {this.props.overlay}
         {appReady ? this.renderApp() : this.renderLoader()}
+
       </div>
     );
    /*return  <div>
@@ -360,6 +501,10 @@ let mapDispatchToProps = function (dispatch) {
     changeView: function (view)
     {
       return dispatch(changeView(view));
+    },
+    changeModal: function (data)
+    {
+      return dispatch(changeModal(data));
     },
     changeConnection: function (data)
     {

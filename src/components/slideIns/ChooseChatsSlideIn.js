@@ -24,7 +24,7 @@ export default class ChooseChatsSlideIn extends SlideIn {
 
     onActiveChatChanged (chatCard,chat)
     {
-        console.log('onActiveChatChanged',chat);
+        //console.log('onActiveChatChanged',chat);
         //this.setState({activeChatCard:chat});
     }
 
@@ -68,7 +68,7 @@ export default class ChooseChatsSlideIn extends SlideIn {
                 <div data-depth="1" className="depthWrapper">
                     {this.renderHeader('New Chat')}
                     <div className="content">
-                       {this.renderChatList()}
+                        {this.renderChatList()}
                     </div>
                     <div className="btns">
                         {/*<div onClick={this.removeFilePreview.bind(this)} className="def-btn">Abort</div>*/}

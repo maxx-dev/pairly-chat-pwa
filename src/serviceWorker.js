@@ -58,7 +58,7 @@ export function register(config) {
 }
 
 function registerValidSW(swUrl, config) {
-  //console.log('Register Service Worker!');
+  console.log('Register Service Worker!');
   navigator.serviceWorker.register(swUrl).then(registration => {
 
       window.sw = registration;
@@ -68,7 +68,13 @@ function registerValidSW(swUrl, config) {
         const installingWorker = registration.installing;
         installingWorker.onstatechange = () => {
           console.log('ServiceWorker StateChange',installingWorker.state);
-          if (installingWorker.state === 'installed') {
+          if (installingWorker.state === 'installed')
+          {
+            if (localStorage.getItem('updateConfirmed'))
+            {
+              installingWorker.postMessage({ action: 'VERSION' });
+              installingWorker.postMessage({ action: 'skipWaiting' }); // triggers reload
+            }
             if (navigator.serviceWorker.controller) {
               // At this point, the updated precached content has been fetched,
               // but the previous service worker will still serve the older
@@ -88,6 +94,15 @@ function registerValidSW(swUrl, config) {
               if (config && config.onSuccess) {
                 config.onSuccess(registration);
               }
+            }
+          }
+
+          if (installingWorker.state === 'activated')
+          {
+            if (localStorage.getItem('updateConfirmed'))
+            {
+              localStorage.removeItem('updateConfirmed');
+              window.dispatchEvent(new CustomEvent('UPDATE_DONE'));
             }
           }
         };
@@ -111,6 +126,7 @@ function registerValidSW(swUrl, config) {
       {
         //console.log('SW','Reported Version',e.data.version);
         window.VERSION_SERVICE_WORKER = e.data.version;
+        window.dispatchEvent(new CustomEvent('RECEIVED_SERVICE_WORKER_VERSION'));
       }
       if (e.data.action === 'SHARED_FILES')
       {
@@ -129,22 +145,18 @@ function registerValidSW(swUrl, config) {
 }
 
 function checkValidServiceWorker(swUrl, config) {
-  // Check if the service worker can be found. If it can't reload the page.
   fetch(swUrl)
     .then(response => {
-      // Ensure service worker exists, and that we really are getting a JS file.
       if (
         response.status === 404 ||
         response.headers.get('content-type').indexOf('javascript') === -1
       ) {
-        // No service worker found. Probably a different app. Reload the page.
         navigator.serviceWorker.ready.then(registration => {
           registration.unregister().then(() => {
             window.location.reload();
           });
         });
       } else {
-        // Service worker found. Proceed as normal.
         registerValidSW(swUrl, config);
       }
     })

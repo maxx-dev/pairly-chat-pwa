@@ -4,6 +4,7 @@ import view from './view'
 import user from './user'
 import toast from './toast'
 import overlay from './overlay'
+import modal from './modal'
 import connection from './connection'
 
 const combinedReducers = combineReducers({
@@ -11,6 +12,7 @@ const combinedReducers = combineReducers({
     user,
     toast,
     overlay,
+    modal,
     connection
 });
 

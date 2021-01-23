@@ -1,4 +1,4 @@
-const packageJSON = require("../package.json");
+const packageJSON = require("./package.json");
 process.env.ENV_PATH = packageJSON.env.envPath;
 const helper = require(process.env.ENV_PATH);
 process.env = helper.getEnv(packageJSON.env.env);
@@ -7,7 +7,9 @@ const webpack = require("webpack");
 const fs = require("fs");
 const path = require("path");
 const loaders = require('./webpack/loaders.js');
+const swVersion = require('./webpack/helper/sw.js');
 process.env.ENV.BUILD_TIME = new Date();
+process.env.VERSION = packageJSON.version;
 const env = require('./webpack/env.js');
 console.log('ENV',process.env.ENV,'BUILD_TIME',process.env.BUILD_TIME);
 let host;
@@ -15,12 +17,11 @@ let host;
 //host = 'localhost';
 //host = '0.0.0.0';
 host = 'devchat.pairly.app';
-//host = '172.16.113.55.nip.io';
-//host = '172.16.113.55';
+swVersion('./public/sw.js',packageJSON.version);
 module.exports = {
     mode:'development',
     entry: {
-        index: path.resolve(__dirname+'/../client/', "src", "main.js")
+        index: path.resolve(__dirname, "src", "main.js")
     },
     module: {
         rules: loaders
@@ -34,6 +35,12 @@ module.exports = {
     output: {
         filename: 'main.js',
         chunkFilename: '[name].bundle.js',
+    },
+    resolve : {
+        alias : {
+            "react": "preact/compat",
+            "react-dom": "preact/compat",
+        }
     },
     devServer: {
         contentBase:'public', // enables to serve manifest.json and sw.js correctly
@@ -55,9 +62,9 @@ module.exports = {
             }
         },
         https: true,
-        key: fs.readFileSync('../server/cert/pairly.app.key'),
-        cert: fs.readFileSync('../server/cert/pairly.app.cer'),
-        ca: fs.readFileSync('../server/cert/server.pem'),
+        key: fs.readFileSync('./cert/devchat.pairly.app.key'),
+        cert: fs.readFileSync('./cert/devchat.pairly.app.cer'),
+        ca: fs.readFileSync('./cert/server.pem'),
 
     },
 };

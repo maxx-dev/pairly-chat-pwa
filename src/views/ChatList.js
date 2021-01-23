@@ -14,7 +14,13 @@ class ChatList extends Component {
 		};
 
 		this.ref = {}
+		this.lcpTriggered = false;
 		this.root = React.createRef();
+	}
+
+	componentDidMount()
+	{
+
 	}
 
 	onChartCardClick (chatCard,chat)
@@ -64,6 +70,11 @@ class ChatList extends Component {
 
 	chatCardDidMount (chatCard)
 	{
+		if (!this.lcpTriggered)
+		{
+			this.lcpTriggered = true;
+			window.appMetrics['LCP'].setEnd(false,true, true);
+		}
 		this.state.chatCardComps.push(chatCard);
 	}
 

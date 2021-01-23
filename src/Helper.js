@@ -223,4 +223,86 @@ export default class Helper
         return false;
     }
 
+    isAppInstalled ()
+    {
+        return window.matchMedia('(display-mode: standalone)').matches
+    }
+
+
+    async updateManifest (update)
+    {
+        let data = await fetch(self.location.origin + '/manifest.json', {
+            method: 'get',
+        });
+        let manifest = await data.json();
+        //console.log('data',manifest);
+        //manifest.theme_color = 'red';
+        manifest = update(manifest);
+        const stringManifest = JSON.stringify(manifest);
+        const blob = new Blob([stringManifest], {type: 'application/json'});
+        const manifestURL = URL.createObjectURL(blob);
+        document.querySelector('link[rel="manifest"]').setAttribute('href', manifestURL);/**/
+    }
+
+    trackVisibility (onVisibilityChange,onFocusChange,onPageShow)
+    {
+        //console.log('trackVisibility')
+        var hidden, visibilityChange;
+        if (typeof document.hidden !== "undefined") { // Opera 12.10 and Firefox 18 and later support
+            hidden = "hidden";
+            visibilityChange = "visibilitychange";
+        } else if (typeof document.msHidden !== "undefined") {
+            hidden = "msHidden";
+            visibilityChange = "msvisibilitychange";
+        } else if (typeof document.webkitHidden !== "undefined") {
+            hidden = "webkitHidden";
+            visibilityChange = "webkitvisibilitychange";
+        }
+        document.addEventListener(visibilityChange, onVisibilityChange.bind(this), false);
+        window.addEventListener('focus', onFocusChange.bind(this),true);
+        window.addEventListener('pageshow', onPageShow.bind(this));
+    }
+
+    preventPinchToZoom ()
+    {
+        document.addEventListener('touchmove', function (event) {
+            if (event.scale !== 1) {
+                //console.log('Prevent Zoom',event.scale,event)
+                event.preventDefault();
+
+            }
+        }, { passive: false });
+    }
+
+    preventDoubleTapToZoom ()
+    {
+        var lastTouchEnd = 0;
+        document.addEventListener('touchend', function (event) {
+            var now = (new Date()).getTime();
+            if (now - lastTouchEnd <= 300) {
+
+                event.preventDefault();
+            }
+            lastTouchEnd = now;
+        }, false)
+    }
+
+    getFromServiceWorker (event)
+    {
+        console.log('getFromServiceWorker',window.app.serviceWorkerRegistration.active);
+        return new Promise( (resolve) => {
+
+            let listener;
+            let cb =  (e) =>
+            {
+                navigator.serviceWorker.removeEventListener('message',cb);
+                resolve(e);
+            };
+            listener = navigator.serviceWorker.addEventListener("message",cb);
+            if (window.app.serviceWorkerRegistration)
+            {
+                window.app.serviceWorkerRegistration.active.postMessage(event);
+            }
+        } )
+    }
 }

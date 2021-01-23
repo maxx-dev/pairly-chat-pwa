@@ -34,6 +34,13 @@ export const changeOverlay = (data) => {
     }
 };
 
+export const changeModal = (data) => {
+    return {
+        type: 'CHANGE_MODAL',
+        data
+    }
+};
+
 export const changeConnection = (data) => {
     return {
         type: 'CHANGE_CONNECTION',

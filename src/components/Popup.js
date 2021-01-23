@@ -14,7 +14,7 @@ class Popup extends Component {
 
 	onHide ()
 	{
-		this.root.current.classList.remove('show');
+		this.root.current ? this.root.current.classList.remove('show') : false;
 	}
 
 	componentDidMount()
@@ -31,11 +31,16 @@ class Popup extends Component {
 		this.root.current.classList.add('show');
 	}
 
+	onClick ()
+	{
+		if (this.props.onClick) this.props.onClick(this);
+	}
+
 	render ()
 	{
 		const { text, className } = this.props;
 		let classNames = ['popup',this.state.active ? 'active' : '',...className];
-		return this.state.active ? <div ref={this.root} className={classNames.join(' ')}>
+		return this.state.active ? <div ref={this.root} onClick={this.onClick.bind(this)} className={classNames.join(' ')}>
 			<div className="text">{text}</div>
 		</div> : false
 	}

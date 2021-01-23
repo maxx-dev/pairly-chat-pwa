@@ -62,7 +62,6 @@ export default class PushManager extends Component {
 				})
 				.then(() => {
 					this.removeSubscriptionOnServer(sub);
-					console.log('User is unsubscribed.');
 					resolve(true);
 					this.state.isSubscribed = false;
 				});

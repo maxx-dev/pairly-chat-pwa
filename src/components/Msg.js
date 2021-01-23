@@ -42,6 +42,7 @@ export default class Msg extends Component {
 		}
 		if (!('google' in window))
 		{
+			this.map.current.innerHTML = `<label class="">Maps not ready</label>`;
 			//console.log('Maps API not ready');
 			this.listeners.mapsReady = this.onMapsReady.bind(this);
 			window.addEventListener('GoogleMapsReady',this.listeners.mapsReady);
@@ -70,6 +71,8 @@ export default class Msg extends Component {
 
 	onReady ()
 	{
+		const { msg } = this.props;
+		//console.log('onReady!',msg.id);
 		if (this.props.onReady) this.props.onReady(this);
 	}
 
@@ -84,7 +87,7 @@ export default class Msg extends Component {
 		const { msg } = this.props;
 		if (!navigator.canShare || !navigator.canShare) return;
 		let url = this.getMsgFileFromApi(msg);
-		//console.log('fetch',url);
+		console.log('fetch',url);
 		fetch(url+'?link=1').then((response) => response.json()).then(function(res)
 		{
 			//console.log('res',res);
@@ -109,26 +112,31 @@ export default class Msg extends Component {
 	onPlay (e)
 	{
 		const { msg, classNames, chat, user } = this.props;
-		//console.log('onPlay',e,'chat',chat);
-		let mediaData = {
-			title: 'Nachricht vom '+window.helper.defaultDateTimeStr(msg.createdAt),
-			artist: chat.user.firstName+' '+chat.user.lastName,
-			album: '-',
-			artwork: [
-				{ src: chat.user.img,  sizes: '96x96',   type: 'image/png' },
-				{ src: chat.user.img,  sizes: '128x128',   type: 'image/png' },
-				{ src: chat.user.img,  sizes: '192x192',   type: 'image/png' },
-				{ src: chat.user.img,  sizes: '256x256',   type: 'image/png' },
-				{ src: chat.user.img,  sizes: '384x384',   type: 'image/png' },
-				{ src: chat.user.img,  sizes: '512x512',   type: 'image/png' }
-			]
-		}
-		//console.log('mediaData',mediaData);
+		//console.log('onPlay',e);
 		if ('MediaMetadata' in window)
 		{
+			let mediaData = {
+				title: 'Nachricht vom '+window.helper.defaultDateTimeStr(msg.createdAt),
+				artist: chat.user.firstName+' '+chat.user.lastName,
+				album: '-',
+				artwork: [
+					{ src: chat.user.img,  sizes: '96x96',   type: 'image/png' },
+					{ src: chat.user.img,  sizes: '128x128',   type: 'image/png' },
+					{ src: chat.user.img,  sizes: '192x192',   type: 'image/png' },
+					{ src: chat.user.img,  sizes: '256x256',   type: 'image/png' },
+					{ src: chat.user.img,  sizes: '384x384',   type: 'image/png' },
+					{ src: chat.user.img,  sizes: '512x512',   type: 'image/png' }
+				]
+			}
 			navigator.mediaSession.metadata = new MediaMetadata(mediaData);
 		}
 		this.props.activeMediaElementChanged(e.target)
+	}
+
+	onEnded (e)
+	{
+		//console.log('e',e,e.target.paused,e.target.currentTime,e.target.src);
+		e.target.src = e.target.src; // Reset time fix for safari (this really works!)
 	}
 
 	renderContent ()
@@ -142,7 +150,9 @@ export default class Msg extends Component {
 		}
 		else if (msg.type === 'AUDIO')
 		{
-			return <div className="content"><audio onError={this.onReady.bind(this)} onCanPlayThrough={this.onReady.bind(this)} onPlaying={this.onPlay.bind(this)} preload="auto" controls src={this.getMsgFileFromApi(msg)}></audio></div>
+			let url = this.getMsgFileFromApi(msg);
+			//console.info('url',window.location.host+'/'+url);
+			return <div className="content"><audio onError={this.onReady.bind(this)} onCanPlayThrough={this.onReady.bind(this)} onPlaying={this.onPlay.bind(this)} onEnded={this.onEnded.bind(this)} preload="auto" controls src={url}></audio></div>
 		}
 		else if (msg.type === 'IMAGE')
 		{

@@ -6,6 +6,7 @@ import ChatList from "../views/ChatList";
 import SearchBar from "./SearchBar";
 import NewChatSlideIn from "./slideIns/NewChatSlideIn";
 import ChooseChatsSlideIn from "./slideIns/ChooseChatsSlideIn";
+import UserProfileImg from "./UserProfileImg";
 
 export default class SideBar extends Component {
 
@@ -125,7 +126,7 @@ export default class SideBar extends Component {
 
                     <div onClick={this.onOpenProfile.bind(this)} className="user">
                     <div className="profileImg">
-                        <img src={user.img}/>
+                        <UserProfileImg user={user}></UserProfileImg>
                     </div>
                     <div className="name textCont half"><span className="">{user.firstName}</span> <span className="">{user.lastName}</span></div>
                     </div>
@@ -133,7 +134,11 @@ export default class SideBar extends Component {
                     <div className="menuBar">
 
                         <div className="wrapper">
-                            <div onClick={this.onMenuBtnClick.bind(this,'NEW_CHAT')} className={['btn',this.props.slideInView && this.props.slideInView.type.name === 'NewChatSlideIn' ? 'active' : ''].join(' ')}><SVGIcons type="NEW_CHAT"/></div>
+                            <div onClick={this.onMenuBtnClick.bind(this,'NEW_CHAT')} className={['btn',this.props.slideInView && this.props.slideInView.type.name === 'NewChatSlideIn' ? 'active' : ''].join(' ')}>
+                                <div className="icon">
+                                <SVGIcons type="NEW_CHAT"/>
+                                </div>
+                            </div>
                             {/*<div onClick={this.onMenuBtnClick.bind(this,'CHOOSE_CHATS')} className={['btn',this.props.slideInView && this.props.slideInView.type.name === 'ChooseChatsSlideIn' ? 'active' : ''].join(' ')}><SVGIcons type="MENU"/></div>*/}
                             <div onClick={this.onMenuBtnClick.bind(this,'MENU')} className={['btn',this.state.menuActive ? 'active' : ''].join(' ')}><SVGIcons type="MENU"/></div>
                             {this.state.menuActive ? <div data-noselect="1" className="menu">

@@ -2,6 +2,7 @@ import React, { Component } from 'react';
 import SlideIn from "./SlideIn";
 import ChatCard from "../ChatCard";
 import SVGIcons from "../../SVGIcons";
+import UserProfileImg from "../UserProfileImg";
 
 export default class ProfileSlideIn extends SlideIn {
 
@@ -37,7 +38,7 @@ export default class ProfileSlideIn extends SlideIn {
                         <div className="top">
 
                             <div className="img">
-                                <img src={user.img}></img>
+                                <UserProfileImg user={user}></UserProfileImg>
                             </div>
                         </div>
                         <div className="name">

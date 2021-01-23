@@ -12,17 +12,27 @@ const loaders = require('./webpack/loaders.js');
 process.env.ENV.BUILD_TIME = new Date();
 const env = require('./webpack/env.js');
 //console.log('process.env.ENV',process.env.ENV);
+const swVersion = require('./webpack/helper/sw.js');
+console.log('Build with sw version',packageJSON.version);
+swVersion('./public/sw.js',packageJSON.version);
 module.exports = {
     mode:'production',
     entry: {
-        index: path.resolve(__dirname+'/../client/', "src", "main.js")
+        index: path.resolve(__dirname, "src", "main.js")
     },
     module: {
         rules: loaders
     },
     output: {
+        filename: 'main.js',
         path: path.resolve(__dirname, "../builds/app/client/"),
         chunkFilename: '[name].bundle.js',
+    },
+    resolve : {
+        alias : {
+            "react": "preact/compat",
+            "react-dom": "preact/compat",
+        }
     },
     plugins: [
         new HtmlWebpackPlugin({

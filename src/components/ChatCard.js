@@ -1,5 +1,6 @@
 import React, { Component } from 'react';
 import SVGIcons from "../SVGIcons";
+import UserProfileImg from "./UserProfileImg";
 
 export default class ChatCard extends Component {
     constructor(){
@@ -101,16 +102,23 @@ export default class ChatCard extends Component {
         }
     }
 
-    onAudioReady ()
+    onAudioReady (e)
     {
         const { chat, view } = this.props;
         let dur = document.querySelector('.chatCard[data-chatid="'+chat.userChat.chatId+'"] .duration');
-        let audio = document.querySelector('.chatCard[data-chatid="'+chat.userChat.chatId+'"] audio');
-        //console.log('onAudioReady',dur,audio);
-        if (dur &&  audio && audio.duration)
+        //let audio = document.querySelector('.chatCard[data-chatid="'+chat.userChat.chatId+'"] audio');
+        let audio = this.audio;
+        //console.dir(audio);
+        //console.log('currentTime',audio.duration);
+        if (dur)
         {
             dur.innerHTML = window.helper.userFormatDurationFromMs(audio.duration * 1000);
         }
+    }
+
+    getMsgFileFromApi (msg)
+    {
+        return window.location.origin+'/api/media/'+msg.text+'/'+localStorage.getItem('token')
     }
 
     renderLastMsg ()
@@ -125,10 +133,14 @@ export default class ChatCard extends Component {
         {
             if (latestMsg.type === 'AUDIO')
             {
+                this.audio = new Audio();
+                //if (/iPad|iPhone|iPod/.test(navigator.userAgent)) this.audio.autoplay = true; // https://stackoverflow.com/questions/33300294/html5-video-loadeddata-event-does-not-work-in-ios-safari
+                this.audio.src = this.getMsgFileFromApi(latestMsg);
+                this.audio.onloadeddata = this.onAudioReady.bind(this); // does not work under ios
                 content = <span className="audio">
                     <SVGIcons type="MICRO"/>
-                    <audio style={{display:'none'}} onLoadedData={this.onAudioReady.bind(this)} src={'api/'+latestMsg.text+'/'+localStorage.getItem('token')}></audio>
-                    <span className="duration"></span>
+                    {/*<audio style={{display:'none'}} onLoadedData={this.onAudioReady.bind(this)} src={'api/'+latestMsg.text+'/'+localStorage.getItem('token')}></audio>*/}
+                    <span className="duration">Audio</span>
                 </span>
             }
             else if (latestMsg.type === 'IMAGE')
@@ -187,6 +199,12 @@ export default class ChatCard extends Component {
         e.target.style.display = 'none';
     }
 
+    renderImg ()
+    {
+        const { chat } = this.props;
+        return <UserProfileImg user={chat.user} onImgErr={this.onImgErr.bind(this)}></UserProfileImg>
+    }
+
     render() {
 
         const { selected, imgLoadError } = this.state;
@@ -207,7 +225,7 @@ export default class ChatCard extends Component {
                     <SVGIcons type="BACK"></SVGIcons>
                 </div> : false}
                 <div {...imgProps} className="img">
-                    <img onError={this.onImgErr.bind(this)} src={user.img}></img>
+                    {this.renderImg()}
                 </div>
                 <div className="content">
                     <div className="headline">

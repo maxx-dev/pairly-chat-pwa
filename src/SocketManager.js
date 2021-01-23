@@ -15,6 +15,11 @@ export default class SocketManager
         }
     }
 
+    isConnected ()
+    {
+        return this.socket.connected;
+    }
+
     emit(eventType)
     {
         let socket = this.socket;
@@ -56,6 +61,7 @@ export default class SocketManager
         }
         if (!socket.connected) // prevent sending emit when not connected
         {
+            console.log(new Date(),'Socket not connected',eventType)
             return;
         }
         socket.emit.apply(socket,args);

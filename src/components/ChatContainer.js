@@ -2,7 +2,7 @@ import React, { Component } from "react";
 import Chat from "../views/Chat";
 import SideBar from "./SideBar";
 import SVGIcons from "../SVGIcons";
-import {changeToast, changeUser, changeView} from "../actions";
+import {changeToast, changeUser, changeView, changeModal} from "../actions";
 import {connect} from "react-redux";
 import ChatList from "../views/ChatList";
 import SearchBar from "./SearchBar";
@@ -15,7 +15,9 @@ import PushManager from "../PushManager";
 import Toast from "./Toast";
 import ChooseChatsSlideIn from "./slideIns/ChooseChatsSlideIn";
 import SettingsSlideIn from "./slideIns/SettingsSlideIn";
+import ChangeProfileImageSlideIn from "./slideIns/ChangeProfileImageSlideIn";
 import Popup from "./Popup";
+import Modal from "./modals/Modal";
 
 class ChatContainer extends Component {
 	constructor(props) {
@@ -42,19 +44,11 @@ class ChatContainer extends Component {
 
 		this.ref = {
 			activeChatCard:React.createRef()
-		}
-		//console.log('this',this);
-		let version = '1.0.0';
-		let socket = socketIOClient({query:'token='+localStorage.getItem('token')+'&version='+version});
+		};
+		let socket = socketIOClient({query:'token='+localStorage.getItem('token')+'&version='+process.env.VERSION});
 		window.app.socketManager = new SocketManager(socket);
 		window.app.pushManager = new PushManager();
 		this.initSocketEvents();
-		/*window.app.pushManager.getSubscription().then((isSubscribed)=> {
-			if (!isSubscribed)
-			{
-				//window.app.pushManager.subscribeUser().then(() => {});
-			}
-		})*/
 	}
 
 	componentDidMount() {
@@ -63,7 +57,7 @@ class ChatContainer extends Component {
 		//window.addEventListener("beforeunload", (event) => {});
 		//window.addEventListener("ReceivedSharedFiles", this.onReceivedSharedFiles.bind(this));
 		// TO-DO Reenable
-		//window.helper.loadScript('https://maps.googleapis.com/maps/api/js?key='+process.env.GOOGLE_MAPS_KEY+'&callback=initMap')
+		window.helper.loadScript('https://maps.googleapis.com/maps/api/js?key='+process.env.GOOGLE_MAPS_KEY+'&callback=initMap')
 		/*setTimeout(() => {
 
 			console.log('user timeout',this.props.user.id,this.props.user);
@@ -82,6 +76,7 @@ class ChatContainer extends Component {
 	{
 		//window.app.socketManager.on('get:auth', this.onAuth.bind(this));
 		window.app.socketManager.on('connect', this.onConnect.bind(this));
+		window.app.socketManager.on('disconnect', this.onDisconnect.bind(this));
 		window.app.socketManager.on('reconnect', this.onReconnect.bind(this));
 		window.app.socketManager.on('put:statusChanged', this.onStatusChange.bind(this));
 		window.app.socketManager.on('post:message', this.onNewMsg.bind(this));
@@ -89,18 +84,32 @@ class ChatContainer extends Component {
 		window.app.socketManager.on('put:messageArrived', this.onMsgArrived.bind(this));
 		window.app.socketManager.on('put:messageRead', this.onMsgRead.bind(this));
 		window.app.socketManager.on('post:chats/invite', this.onInvitedNewUsers.bind(this));
+		window.app.socketManager.on('get:appInfos', this.onGetAppInfos.bind(this));
 	}
 
-	onConnect (e)
+	onConnect (e) // Also triggered on reconnect
 	{
 		//console.log('onConnect');
-		this.setState({socketConnected:true})
+		window.dispatchEvent(new CustomEvent('SocketConnected'));
+		this.setState({socketConnected:true});
 		this.props.sendQueuedMsgs();
+		window.app.socketManager.emit('get:appInfos');
+	}
+
+	onDisconnect ()
+	{
+		this.setState({socketConnected:false});
 	}
 
 	onReconnect (e)
 	{
-		//console.log('onReconnect',e);
+		console.info('onReconnect',e);
+		window.dispatchEvent(new CustomEvent('SocketReconnected'));
+	}
+
+	onGetAppInfos (appInfos)
+	{
+		this.props.onGetAppInfos(appInfos);
 	}
 
 	loadSharedFiles ()
@@ -144,14 +153,14 @@ class ChatContainer extends Component {
 		//let [err,sharedFiles] = await this.loadSharedFiles(window.app.sharedFiles);
 		//let sharedFiles = e.detail.sharedFiles
 		console.log('onReceivedSharedFiles after loading',window.app.sharedFiles);
-		this.setState({slideInView:this.slideInViewProvider('ChooseChatsSlideIn')})
+		//this.setState({slideInView:this.slideInViewProvider('ChooseChatsSlideIn')});
+		this.setState({slideInView:'ChooseChatsSlideIn'})
 	}
 
 	onStatusChange (status)
 	{
-		//console.log('onStatusChange',status);
 		let chat = window.helper.getChatByUserId(this.props.user,status.userId);
-		//console.log('Found Chat',chat);
+		//console.info('onStatusChange',status,chat ? chat.id : false);
 		if (chat)
 		{
 			chat.user.isOnline = status.isOnline;
@@ -163,9 +172,10 @@ class ChatContainer extends Component {
 			{
 				chat.user.lastOnlineAt = false;
 			}
+			this.state.activeChatCard.user = chat.user;
 		}
 		this.props.changeUser(this.props.user);
-		//this.setState({user:this.state.user});
+		this.setState({activeChatCard:this.state.activeChatCard});
 	}
 
 	onNewMsgUploadReady (msg)
@@ -175,10 +185,10 @@ class ChatContainer extends Component {
 		{
 			//console.log(this);
 			this.getFile(msg.uuid).then((blob) => {
-				//console.log('getFile',blob);
+				console.log('getFile',blob);
 				if (blob)
 				{
-					window.helper.uploadFile(blob, msg.uploadUrl, {mimeType: msg.mimeType},this.onFileUploaded.bind(this,msg), this.onFileUploadProgress.bind(this));
+					window.helper.uploadFile(blob.result, msg.uploadUrl, {mimeType: msg.mimeType},this.onFileUploaded.bind(this,msg), this.onFileUploadProgress.bind(this));
 				}
 			});
 		}
@@ -197,10 +207,21 @@ class ChatContainer extends Component {
 
 	onNewMsg (msg)
 	{
-		console.log('onNewMsg',msg);
+		console.log(new Date().toISOString(),'onNewMsg',msg);
 		if (!window.helper.isOwnMsg(this.props.user,msg.userId))
 		{
-			window.app.socketManager.emit('put:messageArrived',msg);
+			let isActiveInChat = this.props.view.view === 'CHAT' && this.state.activeChatCard.userChat.chatId;
+			//console.log('Directly set as read',isActiveInChat);
+			if (isActiveInChat) // if user is active in chat we directly set message as read
+			{
+				msg.state = 2
+				window.app.socketManager.emit('put:messageRead',msg);
+			}
+			else
+			{
+				msg.state = 1;
+				window.app.socketManager.emit('put:messageArrived',msg);
+			}
 			if (navigator.vibrate) window.navigator.vibrate(200);
 		}
 		//let chat = window.helper.getChatByUserId(this.props.user,msg.userId);
@@ -211,7 +232,7 @@ class ChatContainer extends Component {
 			//if (!chat.msgs) chat.msgs = [];
 			//chat.msgs.push(msg);
 			chat.latestMsg = msg;
-			if (msg.userId !== this.props.user.id)
+			if (msg.userId !== this.props.user.id && msg.state === 0)
 			{
 				if (!chat.unreadCount) chat.unreadCount = 0;
 				chat.unreadCount++;
@@ -296,7 +317,7 @@ class ChatContainer extends Component {
 
 	onActiveChatChanged (chatCard,chat)
 	{
-		console.log('onActiveChatChanged',chat);
+		//console.log('onActiveChatChanged',chat);
 		if (this.state.activeChatCard)
 		{
 			this.state.activeChatCard.active = false
@@ -502,7 +523,8 @@ class ChatContainer extends Component {
 
 	canShowMobileMenu ()
 	{
-		return !this.state.slideInView || (this.state.slideInView && this.state.slideInView.type.name !== 'ChooseChatsSlideIn' && this.state.slideInView.type.name !== 'NewChatSlideIn')
+		//return !this.state.slideInView || (this.state.slideInView && this.state.slideInView.type.name !== 'ChooseChatsSlideIn' && this.state.slideInView.type.name !== 'NewChatSlideIn')
+		return !this.state.slideInView || (this.state.slideInView !== 'ChooseChatsSlideIn' && this.state.slideInView !== 'NewChatSlideIn')
 	}
 
 	renderMobileMenu ()
@@ -527,7 +549,6 @@ class ChatContainer extends Component {
 	renderViewChat ()
 	{
 		return <div data-view={"CHAT"} className="view">
-			{/*this.renderViewHeader()*/}
 			{this.state.activeChatCard ? <Chat key={this.state.activeChatCard.userChat.chatId}
 											   onActiveChatChanged={this.onActiveChatChanged.bind(this)}
 											   onOpenProfile={this.onOpenProfile.bind(this)}
@@ -554,8 +575,8 @@ class ChatContainer extends Component {
 
 	onShowNewChatSlideIn ()
 	{
-		this.setState({slideInView:this.slideInViewProvider('NewChatSlideIn')})
-		//this.setState({newChatActive:true});
+		//this.setState({slideInView:this.slideInViewProvider('NewChatSlideIn')})
+		this.setState({slideInView:'NewChatSlideIn'})
 	}
 
 	renderViewHeader ()
@@ -583,13 +604,13 @@ class ChatContainer extends Component {
 	{
 		return <div data-view={"SETTINGS"}className="view">
 			{this.renderViewHeader()}
-			{<SettingsContent changeToast={this.props.changeToast.bind(this)}></SettingsContent>}
+			{<SettingsContent changeSlideInView={this.changeSlideInView.bind(this)} changeToast={this.props.changeToast.bind(this)}></SettingsContent>}
 		</div>
 	}
 
 	renderSettingsSlideIn ()
 	{
-		return <SettingsSlideIn changeToast={this.props.changeToast.bind(this)} deferredInstallPrompt={this.props.deferredInstallPrompt} onClose={this.onCloseSlideIn.bind(this,() => this.setState({slideInView:false}) )}/>
+		return <SettingsSlideIn changeSlideInView={this.changeSlideInView.bind(this)} changeToast={this.props.changeToast.bind(this)} deferredInstallPrompt={this.props.deferredInstallPrompt} onClose={this.onCloseSlideIn.bind(this,() => this.setState({slideInView:false}) )}/>
 	}
 
 	onCloseSlideIn (trigger)
@@ -621,10 +642,22 @@ class ChatContainer extends Component {
 		return <NewChatSlideIn onClose={this.onCloseSlideIn.bind(this,() => this.setState({slideInView:false}) )} changeToast={this.props.changeToast.bind(this)}/>
 	}
 
+	renderChangeProfileImageSlideIn ()
+	{
+		let onCloseSlideIn = (img) => {
+			this.setState({slideInView:false});
+			let { user } = this.props;
+			user.img = img
+			this.props.changeUser(user);
+		};
+		return <ChangeProfileImageSlideIn user={this.props.user} onClose={onCloseSlideIn.bind(this)} changeToast={this.props.changeToast.bind(this)}></ChangeProfileImageSlideIn>
+	}
+
 	changeSlideInView (key)
 	{
-		//console.log('changeSlideInView',key);
-		this.setState({slideInView:this.slideInViewProvider(key)})
+		console.info('changeSlideInView',key);
+		//this.setState({slideInView:this.slideInViewProvider(key)})
+		this.setState({slideInView:key})
 	}
 
 	slideInViewProvider (key)
@@ -641,16 +674,21 @@ class ChatContainer extends Component {
 		{
 			return this.renderNewChatsSlideIn()
 		}
+		if (key === 'ChangeProfileImageSlideIn')
+		{
+			return this.renderChangeProfileImageSlideIn()
+		}
 	}
 
 	canShowCustomInstallPopup ()
 	{
 		//return true;
-		return navigator.userAgent.toLowerCase().indexOf('iphone') !== -1 && !localStorage.getItem('didShowInstallPopup') && !this.state.hideCustomInstallPopup
+		return navigator.userAgent.toLowerCase().indexOf('iphone') !== -1 && !localStorage.getItem('didShowInstallPopup') && !this.state.hideCustomInstallPopup && !window.helper.isAppInstalled()
 	}
 
 	onClickCustomInstallPopup ()
 	{
+		//console.log('onClickCustomInstallPopup');
 	   localStorage.setItem('didShowInstallPopup',1);
 	   this.setState({hideCustomInstallPopup:true});
 	}
@@ -660,9 +698,9 @@ class ChatContainer extends Component {
 		let { view } = this.props;
 		return <div data-profileactive={this.state.profileActive ? 1 : 0} className="wrapper">
 			{<div className="content">
-				{this.slideInViewProvider(this.state.slideInView ? this.state.slideInView.type.name : false)}
+				{this.slideInViewProvider(this.state.slideInView)}
 				{view.view === 'CHATS' || view.view === 'CHAT' ? this.renderViewChatList() : false}
-				{view.view === 'CHATS' || view.view === 'CHAT'  ? this.renderViewChat() : false}
+				{view.view === 'CHAT'  ? this.renderViewChat() : false}
 				{view.view === 'SETTINGS' ? this.renderViewSettings() : false}
 				{this.state.profileActive  ? this.renderProfile() : false}
 			</div>}
@@ -736,9 +774,6 @@ class ChatContainer extends Component {
 
 	render() {
 
-		let { socketConnected } = this.state;
-		//console.log('user',this.props.user.id,this.props.user);
-		if (!socketConnected) return false;
 		return (
 			<div className="chatMainContainer">
 				{window.helper.isMobileView() ? this.renderMobileView() : this.renderDesktopView()}
@@ -760,9 +795,13 @@ const mapDispatchToProps = dispatch => ({
 	{
 		return dispatch(changeUser(data));
 	},
-	changeView: function (view)
+	changeView: function (data)
 	{
-		return dispatch(changeView(view));
+		return dispatch(changeView(data));
+	},
+	changeModal: function (data)
+	{
+		return dispatch(changeModal(data));
 	},
 });
 

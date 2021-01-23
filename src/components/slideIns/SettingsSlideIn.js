@@ -39,7 +39,7 @@ export default class SettingsSlideIn extends SlideIn {
             <div ref={this.root} className="settings slideIn">
                 <div data-depth="1" className="depthWrapper">
                     {this.renderHeader('Settings')}
-                    {<SettingsContent changeToast={this.props.changeToast.bind(this)}></SettingsContent>}
+                    {<SettingsContent changeSlideInView={this.props.changeSlideInView.bind(this)} changeToast={this.props.changeToast.bind(this)}></SettingsContent>}
                 </div>
                 {steps}
             </div>

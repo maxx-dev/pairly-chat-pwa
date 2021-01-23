@@ -16,6 +16,11 @@ class SearchBar extends Component {
 		}
 	}
 
+	componentDidMount()
+	{
+		window.appMetrics['TTI'].setEnd(false,false, true);
+	}
+
 	onFocusSearch (e)
 	{
 		this.setState({searchFocused:true});
@@ -49,7 +54,7 @@ class SearchBar extends Component {
 				</div>
 				{this.canShowPlaceHolder() ? <div className="placeholder">Search...</div> : false}
 				<div className="content">
-					<div onKeyUp={this.onSearch.bind(this)} onFocus={this.onFocusSearch.bind(this)} onBlur={this.onBlurSearch.bind(this)} className={searchFocused ? 'input focused' :'input'} contentEditable={true}></div>
+					<div aria-label="search" onKeyUp={this.onSearch.bind(this)} onFocus={this.onFocusSearch.bind(this)} onBlur={this.onBlurSearch.bind(this)} className={searchFocused ? 'input focused' :'input'} contentEditable={true}></div>
 				</div>
 			</div>
 		</div>

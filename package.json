@@ -1,13 +1,14 @@
 {
-  "name": "pwa-chat",
-  "version": "0.1.0",
+  "name": "pairly-chat",
+  "version": "1.4.93",
   "main": "server/",
   "proxy_": "http://localhost:4001",
   "proxy": "https://devchat.pairly.app",
   "private": true,
   "dependencies": {
-    "node-sass": "^4.9.4",
-    "react": "^16.5.2",
+    "preact": "^10.4.7",
+    "preact-compat": "^3.19.0",
+    "react": "^16.13.1",
     "react-dom": "^16.5.2",
     "react-redux": "^7.2.0",
     "redux": "^4.0.5",
@@ -19,8 +20,7 @@
     "envPath": "../env/env.js"
   },
   "scripts": {
-    "dev": "webpack --mode development",
-    "start": "webpack-dev-server --mode development --open 'google chrome'",
+    "start": "webpack-dev-server --mode development",
     "build": "webpack --mode production --config webpack.production.config.js"
   },
   "eslintConfig": {
@@ -34,6 +34,7 @@
   ],
   "devDependencies": {
     "@babel/core": "^7.10.2",
+    "@babel/plugin-syntax-class-properties": "^7.12.1",
     "@babel/plugin-transform-runtime": "^7.10.5",
     "@babel/preset-env": "^7.10.2",
     "@babel/preset-react": "^7.10.1",
@@ -45,6 +46,7 @@
     "css-loader": "^3.5.3",
     "file-loader": "^6.0.0",
     "html-webpack-plugin": "^4.3.0",
+    "node-sass": "^4.9.4",
     "sass": "^1.26.8",
     "sass-loader": "^8.0.2",
     "style-loader": "^1.2.1",

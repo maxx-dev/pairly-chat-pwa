@@ -20,7 +20,8 @@ class Chat extends Component {
 			showPlaceHolder:true,
 			msg:this.getInitialMsg(),
 			firstLoadDone:false,
-			msgs:[]
+			msgs:[],
+			newMsgReadyMap: {}
 		};
 
 		this.ref = {
@@ -28,7 +29,7 @@ class Chat extends Component {
 			inp:React.createRef(),
 			msgs:React.createRef(),
 			scrollToBottom:React.createRef()
-		}
+		};
 		this.listeners = {}
 	}
 
@@ -38,17 +39,51 @@ class Chat extends Component {
 		//console.log('didMountChat',chat.userChat.chatId);
 		let cacheKey = () => 'cache|chat_'+chat.userChat.chatId;
 		window.app.socketManager.on('get:chatMessages',this.onGetChatMsgs.bind(this),{cacheKey: cacheKey()});
-		window.app.socketManager.emit('get:chatMessages',chat.userChat.chatId,{limit:20},{cacheKey:cacheKey()});
+
 		this.listeners.windowFocus = this.onWindowFocus.bind(this);
-		window.addEventListener('WINDOW_FOCUS',this.listeners.windowFocus );
+		this.listeners.socketConnected = this.onSocketConnected.bind(this);
+		this.listeners.socketReconnected = this.onSocketReconnected.bind(this);
+		window.addEventListener('WindowFocus',this.listeners.windowFocus );
+		window.addEventListener('SocketConnected',this.listeners.socketConnected );
+		window.addEventListener('SocketReconnected',this.listeners.socketReconnected );
 		this.initMediaSession();
 		//this.askForMicro()
+
+		if (window.app.socketManager.isConnected())
+		{
+			this.getChatMsgs();
+		}
 	}
 
 	componentWillUnmount()
 	{
-		window.removeEventListener('WINDOW_FOCUS',this.listeners.windowFocus)
+		window.removeEventListener('WindowFocus',this.listeners.windowFocus)
 		//window.socket.removeAllListeners('get:chatMessages');
+	}
+
+	getChatMsgs ()
+	{
+		let chat = this.props.activeChatCard;
+		let cacheKey = () => 'cache|chat_'+chat.userChat.chatId;
+		window.app.socketManager.emit('get:chatMessages',chat.userChat.chatId,{limit:20},{cacheKey:cacheKey()});
+	}
+
+	onSocketConnected ()
+	{
+		//console.log('onSocketConnected');
+		this.getChatMsgs();
+	}
+
+	onSocketReconnected ()
+	{
+		let { msgs } = this.state;
+		//console.info('onSocketReconnected',msgs);
+		if (msgs.length)
+		{
+			let lastMsg = msgs[msgs.length -1];
+			//console.log('lastMsg',lastMsg);
+			this.handlePongMsg(lastMsg);
+		}
 	}
 
 	getInitialMsg ()
@@ -59,7 +94,7 @@ class Chat extends Component {
 	onWindowFocus ()
 	{
 		//console.log('onWindowFocus');
-		this.setAllMessagesRead('onWindowFocus');
+		//this.setAllMessagesRead('onWindowFocus');
 	}
 
 	askForMicro ()
@@ -167,14 +202,21 @@ class Chat extends Component {
 			console.info('not in cache');
 			return
 		}
-		console.log('newMsgs',newMsgs,msgs.length);
-		let didQueryForNewMsgs = this.state.queryForNewMsgs;
+		console.log('newMsgs',newMsgs.length,newMsgs);
+		if (newMsgs.length === 0)
+		{
+			this.setIsLoadingNewMsgs(false);
+			return;
+		}
+		this.state.newMsgReadyMap = {};
+		this.state.latestOldMsg = msgs[0];
 		for (let s=0;s<newMsgs.length;s++)
 		{
 			let msg = newMsgs[s];
 			msg.createdAt = new Date(msg.createdAt);
+			this.state.newMsgReadyMap[msg.id] = false
 		}
-		let update = {queryForNewMsgs:false};
+		let update = {};
 		if (msgs.length !== 0)
 		{
 			msgs.unshift(...newMsgs);
@@ -187,17 +229,13 @@ class Chat extends Component {
 		//console.log('update',update);
 		this.setState(update,() =>
 		{
-			if (this.scrollRelative <= 0.15)
-			{
-				this.canLoadNewMsgs()
-			}
-			if (window.helper.hasUnreadMsgs(this.state.msgs))
-			{
-
-			}
+			//if (this.scrollRelative <= 0.15) this.canLoadNewMsgs()
+			if (window.helper.hasUnreadMsgs(this.state.msgs)) {}
 			this.setAllMessagesRead('GetChatMsgs');
+			let lastMsg = this.state.msgs[this.state.msgs.length -1];
+			//console.log('lastMsg',lastMsg);
+			this.handlePongMsg(lastMsg);
 		});
-
 	}
 
 	scrollToBottom (animated) {
@@ -236,7 +274,7 @@ class Chat extends Component {
 
 	onNewMsg (newMsg)
 	{
-		//console.log('onNewMsg',newMsg);
+		//console.info('onNewMsg in Chat',newMsg);
 		let { msgs } = this.state;
 		let found = false;
 		for (let s=0;s<msgs.length;s++)
@@ -253,14 +291,36 @@ class Chat extends Component {
 		{
 			msgs.push(newMsg);
 		}
+		this.state.newMsgReadyMap[newMsg.id] = false;
 		this.setState({msgs:msgs},function ()
 		{
+			//console.log('ScrollToBottom',newMsg.userId,this.props.user.id)
 			this.scrollToBottom();
 			if (newMsg.userId !== this.props.user.id)
 			{
 				//this.setAllMessagesRead();
+				this.handlePongMsg(newMsg);
 			}
 		});
+	}
+
+	handlePongMsg (msg)
+	{
+		//console.info('handlePongMsg',msg);
+		if (!msg) return;
+		if (msg.text === 'PING' && window.app.isBatteryTest)
+		{
+			this.sendPong(5000);
+		}
+	}
+
+	sendPong (delay)
+	{
+		let msg = {type:'TEXT',text:'PONG'};
+		setTimeout(() => {
+			console.log(new Date().toISOString(),'Sending PONG msg');
+			this.onSendMsg(msg);
+		},delay)
 	}
 
 	onUpdateMsgStatus (msgId,status)
@@ -282,14 +342,18 @@ class Chat extends Component {
 	setAllMessagesRead (reason)
 	{
 		//console.log('setAllMessagesRead',reason);
-		//let chat = this.props.activeChatCard;
 		let { msgs } = this.state;
 		//console.log('msgs',msgs);
 		let unreadMessages = window.helper.getUnreadMsgs(msgs);
+		unreadMessages = unreadMessages.filter((msg) => msg.userId !== this.props.user.id);
 		for (let s=0;s<msgs.length;s++)
 		{
-			msgs[s].state = 2;
+			if (msgs[s].userId !== this.props.user.id)
+			{
+				msgs[s].state = 2;
+			}
 		}
+		//console.log('msgs',msgs);
 		//console.log('unreadMessages',unreadMessages.length,unreadMessages);
 		if (unreadMessages.length)
 		{
@@ -310,6 +374,7 @@ class Chat extends Component {
 	onChangeMsg (e)
 	{
 		let val = e.target.innerHTML;
+		if (val === '<br>') val = '';
 		//console.log('changeHandler',val);
 		this.setPlaceHolder(!!!val);
 		this.setState({
@@ -324,6 +389,7 @@ class Chat extends Component {
 		if(!msg.uuid) msg.uuid = window.helper.uuidv4();
 		if(!msg.type) msg.type = 'TEXT';
 		if(!msg.userId) msg.userId = this.props.user.id;
+		this.setPlaceHolder(true);
 		this.props.onSendMsg(msg, {});
 		if (!navigator.onLine)
 		{
@@ -378,7 +444,7 @@ class Chat extends Component {
 	{
 		let scrollMax = e.target.scrollHeight - e.target.getBoundingClientRect().height;
 		this.scrollRelative = e.target.scrollTop / scrollMax;
-		//console.log('onScroll',e.target.scrollTop,scrollMax,'scrollRelative',scrollRelative);
+		//console.log('onScroll',e.target.scrollTop,scrollMax,'scrollRelative',this.scrollRelative);
 		if (this.ref.scrollToBottom && this.ref.scrollToBottom.current)
 		{
 			if (this.scrollRelative <= 0.93)
@@ -391,8 +457,10 @@ class Chat extends Component {
 			}
 		}
 
-		if (this.scrollRelative <= 0.15)
+		if (this.scrollRelative <= 0.05)
+		//if (this.scrollRelative <= 0)
 		{
+			//console.log('onScroll',e.target.scrollTop,scrollMax,'scrollRelative',this.scrollRelative,"queryForNewMsgs",this.state.queryForNewMsgs);
 			this.canLoadNewMsgs()
 		}
 	}
@@ -402,13 +470,14 @@ class Chat extends Component {
 		let oldestMsg = this.state.msgs[0];
 		if(!this.state.queryForNewMsgs)
 		{
-			//this.state.queryForNewMsgs = true;
 			let firstMsg = this.state.msgs[0];
 			if (!firstMsg.isFirst && navigator.onLine)
 			{
-				//console.log('Query For new msgs');
+				//console.log('Query For new msgs',this.scrollRelative);
+				this.state.queryForNewMsgs = true;
+				this.ref.msgs.current.style.pointerEvents = 'none';
 				this.setState({queryForNewMsgs:true});
-				window.app.socketManager.emit('get:chatMessages',this.props.activeChatCard.userChat.chatId,{to:oldestMsg.createdAt,limit:5});
+				window.app.socketManager.emit('get:chatMessages',this.props.activeChatCard.userChat.chatId,{to:oldestMsg.createdAt,limit:15});
 			}
 			else
 			{
@@ -436,19 +505,70 @@ class Chat extends Component {
 	onMsgReady (msg)
 	{
 		if (!this.msgReadyCount) this.msgReadyCount = 0;
-		//console.log('onMsgReady',msg.props.msg.type,this.msgReadyCount,this.state.msgs.length,msg);
+		//console.log('onMsgReady',msg.props.msg.id,this.state.newMsgReadyMap);
 		this.msgReadyCount++;
-
+		if (this.state.newMsgReadyMap[msg.props.msg.id])
+		{
+			this.state.newMsgReadyMap[msg.props.msg.id] = true;
+		}
+		if (this.state.newMsgReadyMap[msg.props.msg.id] === undefined)
+		{
+			console.log('Msg with id',msg.props.msg.id,'not in newMsgReadyMap');
+		}
 		if (this.msgReadyCount === this.state.msgs.length -1)
 		{
 			if (!this.state.firstLoadDone)
 			{
 				//console.log('scrollToBottom on init');
 				this.scrollToBottom(false);
-				//if (!didQueryForNewMsgs) this.scrollToBottom(true);
 			}
 			this.setState({firstLoadDone:true});
 		}
+
+		if (this.allNewMsgsReady()) // wait until all new msgs have reported to be ready via onReady event
+		{
+			if (this.state.latestOldMsg)
+			{
+				//console.log('All new Msgs Ready',this.state.latestOldMsg.id);
+				if (this.getMsgElementById(this.state.latestOldMsg.id))
+				{
+					let newScrollTop = this.getMsgElementById(this.state.latestOldMsg.id).offsetTop - 20;
+					this.scrollTo(newScrollTop);
+					//console.log('latestOldMsg =>',newScrollTop);
+					setTimeout(() => {
+						this.scrollTo(newScrollTop);
+						this.setIsLoadingNewMsgs(true)
+					},600) // Stupid Mobile safari is not able to set scrollPosition directly after new elements are being rendered
+				}
+			}
+		}
+	}
+
+	setIsLoadingNewMsgs (state)
+	{
+		this.ref.msgs.current.style.pointerEvents = state ? 'none' : 'auto';
+		this.setState({queryForNewMsgs:state});
+	}
+
+	getMsgElementById (id)
+	{
+		return  document.querySelector('.msg[data-id="'+id+'"]');
+	}
+
+	allNewMsgsReady ()
+	{
+		let notReady = [];
+		for (let msgId in this.state.newMsgReadyMap)
+		{
+			let msg = this.state.newMsgReadyMap[msgId];
+			if (!msg)
+			{
+				notReady.push(msgId)
+			}
+		}
+		//console.log('newMsgReadyMap',this.state.newMsgReadyMap);
+		if (notReady.length === 0) return true;
+		return false;
 	}
 
 	renderMsgLoader ()
@@ -598,7 +718,7 @@ class Chat extends Component {
 		}
 		if (option.key === 'DOCUMENT')
 		{
-			return;
+			//return;
 		}
 		this.setState({showShareOptions:false});
 	}
@@ -675,9 +795,18 @@ class Chat extends Component {
 		this.onSendMsg(msg);
 	}
 
+	onMouseDownMsgsCont (e)
+	{
+		//console.log('onMouseDownMsgsCont',e);
+		if (document.activeElement && document.activeElement.getAttribute('name') === 'message')
+		{
+			document.activeElement.blur()
+		}
+	}
+
 	render ()
 	{
-		const { msg, msgs, firstLoadDone } = this.state;
+		const { msg, msgs, firstLoadDone, queryForNewMsgs } = this.state;
 
 		let lastDate = null;
 		let chatMessages = [];
@@ -704,7 +833,7 @@ class Chat extends Component {
 			lastDate = new Date(msg.createdAt.getTime());
 			chatMessages.push(this.renderMsg(msg,classNames));
 		}
-		//console.log('props',this.props);
+		//console.log('chatMessages',chatMessages.length)
 		let props = {
 			ref:this.ref.root
 		};
@@ -723,13 +852,12 @@ class Chat extends Component {
 				<header data-noselect="1" className="chatHeader">
 					<ChatCard onClickBack={this.onClickBack.bind(this)} view={"HEADER"} user={this.props.user} onClick={this.onChatHeadClick.bind(this)} chat={this.props.activeChatCard ? this.props.activeChatCard : false}></ChatCard>
 				</header>
-				<div className="msgsContainer">
+				<div onMouseDown={this.onMouseDownMsgsCont.bind(this)} className="msgsContainer">
 					{!this.props.connection ? <div className="offlineIndicator">You are offline. Your created messages will be sent when back online!</div> : false}
 					<img src={this.props.image} />
-					{this.state.queryForNewMsgs ? this.renderMsgLoader() : false}
+					{queryForNewMsgs ? this.renderMsgLoader() : false}
 					<div onScroll={this.onScrollMsgs.bind(this)} ref={this.ref.msgs} className="msgs">
-
-						{!firstLoadDone ? <Spinner></Spinner> : false}
+						{/*queryForNewMsgs || true ? <Spinner></Spinner> : false*/}
 						{chatMessages}
 					</div>
 					<div className="spacer"/>
@@ -744,14 +872,6 @@ class Chat extends Component {
 					<div className="wrapper">
 					<div onClick={this.onShowShareOptions.bind(this)} className="btn share">
 						<SVGIcons type={"PLUS"} />
-						{/*<Dropzone
-							accept="image/png"
-							onChange={(file) => this.props.grabFile(file.target)}
-							type="file"
-							className="btnWrapper">
-
-							<SVGIcons type={"PLUS"} />
-						</Dropzone>*/}
 					</div>
 					<div className={this.state.recordAudio ? 'disabled input' : 'input'}>
 						{this.state.showPlaceHolder ? <div className="placeholder">Write a message</div> : false}
@@ -764,6 +884,7 @@ class Chat extends Component {
 							 onKeyDown={this.onKeyDown.bind(this)}
 							 name="message"
 							 ref={this.ref.inp}
+							 tabIndex="0"
 							 onKeyUp={this.onChangeMsg.bind(this)}
 						></div>
 					</div>
@@ -773,7 +894,7 @@ class Chat extends Component {
 					</div>
 				</footer>
 
-				{this.state.showShareOptions ? <Options onFileChange={this.onFileChange.bind(this)} onChooseOption={this.onChooseShareOption.bind(this)} options={[{key:'LOCATION',icon:'LOCATION',title:'Location'},{key:'DOCUMENT',icon:'DOCUMENT',title:'Document'}]}></Options> : false}
+				{this.state.showShareOptions ? <Options onFileChange={this.onFileChange.bind(this)} onChooseOption={this.onChooseShareOption.bind(this)} options={[{key:'LOCATION',icon:'LOCATION',title:'Location'},{key:'DOCUMENT',icon:'DOCUMENT',title:'Document'},{key:'ABORT',icon:'',title:'Abort'}]}></Options> : false}
 			</div>
 	}
 

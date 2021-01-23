@@ -12,7 +12,7 @@
     --panel-header-background:#2a2f32;
     --background-default:#131c21;
 
-    --primary-strong:rgba(241,241,242,0.92);
+    --primary-strong:rgba(255,255,255,1);
     --panel-header-icon:#b1b3b5;
     --secondary:rgba(241,241,242,0.63);
     --incoming-background:#262d31;
@@ -27,6 +27,7 @@
 
     --border-list:#30383d;
     --compose-input-background:#33383b;
+    --compose-input-background-mobile:#33383b;
     --compose-input-border:#33383b;
     --dropdown-background:#2a2f32;
 
@@ -44,7 +45,8 @@
     --login-input-background:transparent;
     --mobile-menu-background:#131c21;
     --mobile-menu-border:#131c21;
-    --mobile-menu-active-icon:rgba(5,71,61,1);
+    //--mobile-menu-active-icon:rgba(5,71,61,1);
+    --mobile-menu-active-icon:#00af9c;
   }
 
   .slideIn .depthWrapper .content,
@@ -87,5 +89,4 @@
   .loginContainer svg {
     color:var(--primary);
   }
-
 }

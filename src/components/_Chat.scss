@@ -143,6 +143,7 @@
 			transition: background .3s ease-out .1s;
 			width: 100%;
 			z-index: 100;
+			padding-top: 8px;
 
 			.spacer {
 
@@ -163,6 +164,7 @@
 
 		img {
 			max-width: 100%;
+			min-height: 120px;
 		}
 
 		.spacer {
@@ -243,8 +245,6 @@
 				box-shadow: 0 1px .5px rgba(var(--shadow-rgb),.13);
 				border-radius: 7.5px;
 				padding: 6px 7px 8px 9px;
-				max-width: 75%;
-
 			}
 
 			.tail {
@@ -252,7 +252,7 @@
 				display: block;
 				height: 13px;
 				position: absolute;
-				top: 0;
+				top: 0px;
 				width: 8px;
 				z-index: 100;
 			}
@@ -285,10 +285,10 @@
 			}
 
 			.content {
-				display: flex;
+				//display: flex;
 				//justify-content: center;
-				height: 100%;
-				width:100%;
+				//height: 100%;
+				//width:100%;
 				font-size:14.2px;
 				//word-break: break-all;
 				user-select: text;
@@ -331,9 +331,24 @@
 					color: var(--bubble-meta-icon);
 					display: inline-block;
 					margin-left: 3px;
+
+					svg {
+						width: 15px;
+						height: 16px;
+						padding-top: 4px;
+					}
 				}
 			}
 		}
+
+		.msg[data-type="TEXT"] {
+
+			.wrapper {
+
+				max-width: 75%;
+			}
+		}
+
 
 		.msg[data-state="1"] .status {
 
@@ -367,8 +382,7 @@
 
 			.tail {
 
-				right: -8px;
-				//margin-right:17px;
+				right: -3px;
 				color: var(--outgoing-background);
 			}
 		}
@@ -382,9 +396,7 @@
 			}
 
 			.tail {
-
-				//margin-left:-17px;
-				left: -8px;
+				left: -20px;
 				color: var(--incoming-background);
 			}
 		}
@@ -483,6 +495,11 @@
 			pointer-events: none;
 		}
 
+		.input {
+
+			-webkit-text-fill-color:  var(--input-placeholder);
+		}
+
 		.input div[contenteditable] {
 
 			font-size: 15px;
@@ -532,6 +549,8 @@
 		.btn.share svg {
 
 			margin-top: 8px;
+			width:25px;
+			height:25px;
 		}
 
 		.btn.send .btnWrapper {
@@ -541,6 +560,19 @@
 			svg.micro, svg.send {
 
 				margin-top:9px;
+				width:25px;
+				height:25px;
+			}
+
+			svg.send {
+
+				animation: 0.15s ease-in-out 0.01s 1 normal forwards rotateSendPaperplane;
+			}
+
+			@keyframes rotateSendPaperplane {
+				100% {
+			    	transform: rotateZ(45deg)
+				}
 			}
 		}
 

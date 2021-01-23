@@ -31,9 +31,9 @@ export default class Options extends Component {
     renderOption (option)
     {
         return  <div onClick={this.onClickOption.bind(this,option)} key={option.key} className="option">
-            <div className="icon">
+            {/*<div className="icon">
                 <SVGIcons type={option.icon}/>
-            </div>
+            </div>*/}
             <div className="title">{option.title}</div>
             {option.key === 'DOCUMENT' ? <input onChange={this.onFileChange.bind(this)} type="file" multiple/> : false}
         </div>

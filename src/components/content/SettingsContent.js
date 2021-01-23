@@ -128,9 +128,7 @@ class SettingsContent extends Component {
             //window.location.reload()
             if (this.state.pushEnabled)
             {
-                window.app.pushManager.unsubscribeUser().then(() => {
-
-                });
+                window.app.pushManager.unsubscribeUser().then(() => {});
             }
             else
             {
@@ -220,6 +218,11 @@ class SettingsContent extends Component {
         {
             this.setVisualSetting('reducedMotionActive','reducedMotion',value)
         }
+
+        if (key === 'CHANGEPROFILE_IMAGE')
+        {
+            this.props.changeSlideInView('ChangeProfileImageSlideIn');
+        }
     }
 
     setVisualSetting (key,className,value)
@@ -253,6 +256,7 @@ class SettingsContent extends Component {
                 {this.renderItem('WEBAUTH','FACEID','Enable Face/Touch-ID Login',!!this.props.user.webAuthActive)}
                 {this.renderItem('DARKMODE','THEME','Enable Darkmode',!!this.props.user.darkModeActive)}
                 {this.renderItem('REDUCEDMOTION','MOTION','Enable Reduced Motion',!!this.props.user.reducedMotionActive)}
+                {this.renderItem('CHANGEPROFILE_IMAGE','USER','Change Profile Image')}
                 {this.renderItem('SIGNOUT','SIGNOUT','Sign out')}
                 {this.renderItem('VERSION','INFO',<span>
                     <span>App Version: {window.VERSION_APP}</span> <span>Worker Version: {window.VERSION_SERVICE_WORKER}</span>

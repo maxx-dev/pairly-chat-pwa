@@ -25,6 +25,8 @@ class Login extends Component {
         document.body.addEventListener('keyup',this.listeners.keyUp,true);
         //window.app.socketManager.on("get:auth/login", this.onAuth.bind(this));
         //window.app.socketManager.on('put:auth/webAuthVerify',this.onPerformedWebAuthLogin.bind(this));
+        //document.querySelector('#username').focus();
+        window.appMetrics['TTI'].setEnd(false,false, true);
     }
 
     componentWillUnmount()
@@ -174,6 +176,11 @@ class Login extends Component {
         if (this.props.onLogin) this.props.onLogin();
     }
 
+    onUserNameFocus ()
+    {
+        //console.log('onUserNameFocus');
+        //window.appMetrics['TTI'].setEnd(false,true, true);
+    }
     render() {
 
         const { email } = this.state;
@@ -186,9 +193,9 @@ class Login extends Component {
                     {/*<input id="username" autoFocus={true} onKeyPress={(e)=> {if(e.key === "Enter") submitUsername()}} name="userNameSelection" placeholder='Username' onChange={(e)=> universalChangeHandler(e)} value={username} />*/}
                     <label htmlFor="promo">Email</label>
                     {/* autoFocus={true} breaks keyboard in ios 14 */}
-                    <input id="username"  name="email" placeholder='Email' onChange={this.onChangeEmail.bind(this)} defaultValue={email} />
+                    <input aria-label="email" id="username"  name="email" onFocus={this.onUserNameFocus.bind(this)} placeholder='Email' onChange={this.onChangeEmail.bind(this)} defaultValue={email} />
                     <label htmlFor="promo">Password</label>
-                    <input id="password" name="password" type="password" placeholder='Password' onKeyDown={this.onPasswordKeyDown.bind(this)} onChange={this.onChangePassword.bind(this)} defaultValue={''} />
+                    <input aria-label="password" id="password" name="password" type="password" placeholder='Password' onKeyDown={this.onPasswordKeyDown.bind(this)} onChange={this.onChangePassword.bind(this)} defaultValue={''} />
 
                     <div className="def-btn" onClick={this.onLogin.bind(this)}>Sign In</div>
                     {localStorage.getItem('biometricLoginToken') ? <div className="def-btn" onClick={this.onLoginViaWebAuth.bind(this)}>Sign In with Face/Touch-ID</div> : false}
