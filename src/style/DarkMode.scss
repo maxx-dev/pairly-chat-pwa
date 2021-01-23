@@ -1,0 +1,92 @@
+@mixin darkMode {
+
+  body {
+
+    --app-background:#090e11;
+    --primary:#d4d5d7;
+    --dropdown-background-hover: #20272b;
+    --panel-background-colored:#323739;
+    --background-default-active:#323739;
+    --search-container-background:#2a2f32;
+    --intro-background:#262d31;
+    --panel-header-background:#2a2f32;
+    --background-default:#131c21;
+
+    --primary-strong:rgba(255,255,255,1);
+    --panel-header-icon:#b1b3b5;
+    --secondary:rgba(241,241,242,0.63);
+    --incoming-background:#262d31;
+    --outgoing-background:#054740;
+    --rich-text-panel-background:#1e2428;
+    --conversation-panel-background:#0d1418;
+    --message-primary:rgba(241,241,242,0.95);
+    --system-message-background:#1e2a30;
+
+    background-image: none;
+    background-color: var(--app-background);
+
+    --border-list:#30383d;
+    --compose-input-background:#33383b;
+    --compose-input-background-mobile:#33383b;
+    --compose-input-border:#33383b;
+    --dropdown-background:#2a2f32;
+
+    --bubble-meta:rgba(241,241,242,0.63);
+    --system-message-text:rgba(241,241,242,0.92);
+    --icon-fixed:#828689;
+    --background-default-hover:#2d3134;
+
+    // CUSTOM
+    --chat-card-background:#131c21;
+    --sidebar-background:#131c21;
+    --sideBar-header-background:#2a2f32;
+    --mobile-header-background:#2a2f32;
+    --slideIn-background:#131c21;
+    --login-input-background:transparent;
+    --mobile-menu-background:#131c21;
+    --mobile-menu-border:#131c21;
+    //--mobile-menu-active-icon:rgba(5,71,61,1);
+    --mobile-menu-active-icon:#00af9c;
+  }
+
+  .slideIn .depthWrapper .content,
+  header.sideBarHeader .name,
+  .chatCard .headline .date {
+
+    color: var(--secondary)
+  }
+
+  .slideIn.profile .content {
+
+    background-color:var(--slideIn-background);
+
+  }
+
+  .switchShadow + label {
+
+    background-color: var(--panel-background-colored);
+  }
+
+  .switchShadow + label:before {
+
+    background-color: #131c21;
+  }
+
+  .switchShadow:checked + label:before {
+    background-color: var(--panel-background-colored);
+  }
+
+  .switchShadow + label:after {
+
+    background-color:var(--primary);
+  }
+
+  .loginContainer h1 {
+
+    color:var(--primary);
+  }
+
+  .loginContainer svg {
+    color:var(--primary);
+  }
+}
